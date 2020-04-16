@@ -1,12 +1,25 @@
-import React from "react";
-import { View, Text, FlatList, StyleSheet, Button } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  Button,
+  Alert,
+  ActivityIndicator
+} from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 
 import Colors from "../../constants/Colors";
 import CartItem from "../../components/shop/CartItem";
 import { removeFromCart } from "../../store/actions/cart";
+import { addOrder } from "../../store/actions/orders";
+import Card from "../../components/UI/Card";
 
 export default function CartScreen() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState();
+
   const cartTotalAmount = useSelector(state => state.cart.totalAmount);
   const cartItems = useSelector(state => {
     const transformedCartItems = [];
@@ -27,24 +40,44 @@ export default function CartScreen() {
 
   const dispatch = useDispatch();
 
+  useEffect(() => {
+    if (error) {
+      Alert.alert("An error occurred!", error.message, [{ text: "Okay" }]);
+    }
+  }, [error]);
+
+  const sendOrderHandler = async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      await dispatch(addOrder(cartItems, cartTotalAmount));
+    } catch (error) {
+      setError(error);
+    }
+
+    setIsLoading(false);
+  };
+
   return (
     <View style={styles.screen}>
-      <View style={styles.summary}>
+      <Card style={styles.summary}>
         <Text style={styles.summaryText}>
           Total:{" "}
           <Text style={styles.amount}>
-            $
-            {cartTotalAmount < 0
-              ? (cartTotalAmount * -1).toFixed(2)
-              : cartTotalAmount.toFixed(2)}
+            ${Math.round((cartTotalAmount.toFixed(2) * 100) / 100)}
           </Text>
         </Text>
-        <Button
-          disabled={cartItems.length === 0}
-          color={Colors.accent}
-          title="Order Now"
-        />
-      </View>
+        {isLoading ? (
+          <ActivityIndicator size="small" color={Colors.primaryColor} />
+        ) : (
+          <Button
+            disabled={cartItems.length === 0}
+            color={Colors.accent}
+            title="Order Now"
+            onPress={sendOrderHandler}
+          />
+        )}
+      </Card>
       <View>
         <Text style={{ fontFamily: "open-sans-bold" }}>CART ITEMS</Text>
         {cartItems.length === 0 ? (
@@ -60,6 +93,7 @@ export default function CartScreen() {
                 quantity={itemData.item.quantity}
                 title={itemData.item.productTitle}
                 amount={itemData.item.sum}
+                deletable
                 onRemove={() => {
                   dispatch(removeFromCart(itemData.item.productId));
                 }}
@@ -72,20 +106,20 @@ export default function CartScreen() {
   );
 }
 
-// CartScreen.navigationOptions = navData => {
-//   return {
-//     headerTitle: "All Products",
-//     headerRight: (
-//       <HeaderButtons HeaderButtonComponent={HeaderButton}>
-//         <Item
-//           title="Menu"
-//           iconName={Platform.OS === "android" ? "md-cart" : "ios-cart"}
-//           onPress={() => {}}
-//         />
-//       </HeaderButtons>
-//     )
-//   };
-// };
+CartScreen.navigationOptions = navData => {
+  return {
+    headerTitle: "Your Cart"
+    // headerRight: (
+    //   <HeaderButtons HeaderButtonComponent={HeaderButton}>
+    //     <Item
+    //       title="Menu"
+    //       iconName={Platform.OS === "android" ? "md-cart" : "ios-cart"}
+    //       onPress={() => {}}
+    //     />
+    //   </HeaderButtons>
+    // )
+  };
+};
 
 const styles = StyleSheet.create({
   screen: {
@@ -96,14 +130,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 20,
-    padding: 10,
-    shadowColor: "black",
-    shadowOpacity: 0.26,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 5, //for android
-    borderRadius: 10,
-    backgroundColor: "#fff"
+    padding: 10
   },
   summaryText: {
     fontFamily: "open-sans-bold",
@@ -118,5 +145,10 @@ const styles = StyleSheet.create({
     marginVertical: "50%",
     fontFamily: "open-sans",
     fontSize: 14
+  },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center"
   }
 });
